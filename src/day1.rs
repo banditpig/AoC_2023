@@ -1,4 +1,4 @@
-
+use std::sync::{Arc, Mutex};
 use crate::utils::load_input;
 
 type CalibrationFunction = fn (&str) -> Vec<u32>;
@@ -70,6 +70,27 @@ fn apply_calibration(s: &str, f: CalibrationFunction) -> Vec<u32>{
     f(s)
 }
 
+use std::thread;
+fn solve_threaded(v: Vec<&'static str>, f: CalibrationFunction) -> u32{
+
+    let mut handles = vec![];
+    let sum = Arc::new(Mutex::new(0));
+    for s in v{
+        let sum_ = Arc::clone(&sum);
+        let handle = thread::spawn(move || {
+            let data = apply_calibration(s, f);
+            let mut value = sum_.lock().unwrap();
+            *value += first_last(&data);
+        });
+        handles.push(handle);
+    }
+    for handle in handles {
+        handle.join().expect("Thread panicked");
+    }
+    let x = *sum.lock().unwrap();
+    x
+}
+
 fn solve(v: Vec<&str>, f: CalibrationFunction) -> u32{
     let mut sum :u32 = 0;
     for s in v{
@@ -87,5 +108,15 @@ pub fn part1(){
 pub fn part2(){
     let v = load_input("../data/day1.txt");
     let r = solve(v, replace_words_with_digit);
+    println!("Part 2: {r}");
+}
+pub fn part1_threaded(){
+    let v = load_input("../data/day1.txt");
+    let r = solve_threaded(v, replace_chars_with_digits);
+    println!("Part 1: {r}");
+}
+pub fn part2_threaded(){
+    let v = load_input("../data/day1.txt");
+    let r = solve_threaded(v, replace_words_with_digit);
     println!("Part 2: {r}");
 }
