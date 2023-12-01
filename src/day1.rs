@@ -1,6 +1,8 @@
 
 use crate::utils::load_input;
 
+type CalibrationFunction = fn (&str) -> Vec<u32>;
+
 fn first_last(v: &Vec<u32>) -> u32{
     match v.len() {
         1 => v.first().unwrap() *10 + v.first().unwrap(),
@@ -53,32 +55,37 @@ fn replace_words_with_digit(s: &str) -> Vec<u32>{
     digits
 }
 
-pub fn part2(){
-    let v = load_input("../data/day1.txt")
-        .iter()
-        .map(|s| replace_words_with_digit(s))
-        .collect::<Vec<Vec<u32>>>();
-
-    let mut sum :u32 = 0;
-    for s in &v{
-        sum += first_last(s);
+fn replace_chars_with_digits(s: &str) -> Vec<u32>{
+    let mut digits = vec![];
+    for i in 0..s.len() {
+        let c = s.chars().nth(i).unwrap();
+        if c.is_ascii_digit() {
+            digits.push(c.to_digit(10).unwrap());
+        }
     }
-    println!("Part 2: {sum}");
+    digits
+}
+
+fn apply_calibration(s: &str, f: CalibrationFunction) -> Vec<u32>{
+    f(s)
+}
+
+fn solve(v: Vec<&str>, f: CalibrationFunction) -> u32{
+    let mut sum :u32 = 0;
+    for s in v{
+        let data = apply_calibration(s, f);
+        sum += first_last(&data);
+    }
+    sum
 }
 
 pub fn part1(){
     let v = load_input("../data/day1.txt");
-
-    let mut sum :u32 = 0;
-    for s in v {
-        let nmbrs = s.chars()
-            .filter(|c| c.is_ascii_digit())
-            .collect::<Vec<char>>()
-            .iter()
-            .map(|c| c.to_digit(10).unwrap())
-            .collect::<Vec<u32>>();
-        sum += first_last(&nmbrs);
-    }
-    println!("Part 1: {sum}");
+    let r = solve(v, replace_chars_with_digits);
+    println!("Part 1: {r}");
 }
-
+pub fn part2(){
+    let v = load_input("../data/day1.txt");
+    let r = solve(v, replace_words_with_digit);
+    println!("Part 2: {r}");
+}
