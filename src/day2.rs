@@ -1,9 +1,7 @@
-use crate::day2;
-use crate::day2::Colour::Red;
 use crate::utils::load_input;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 enum Colour {
     Red,
     Green,
@@ -33,7 +31,7 @@ impl Game {
         self.sets.iter().all(|g| g.passes(constraint))
     }
     fn min_cube(&self) -> CubeSet {
-        let mut min_cube = CubeSet::default();
+        let min_cube = CubeSet::default();
 
         self.sets.iter().fold(min_cube, |mut acc, x| {
             if x.red > acc.red {
@@ -68,11 +66,6 @@ impl GameSet {
 }
 
 fn parse_one_colour(s: &str) -> (Colour, usize) {
-    let mut color_map = HashMap::new();
-    color_map.insert(Colour::Red, 0);
-    color_map.insert(Colour::Green, 0);
-    color_map.insert(Colour::Blue, 0);
-
     let s = s.trim().split(' ').collect::<Vec<&str>>();
     let n = s.first().unwrap().parse::<usize>().unwrap();
     match *s.last().unwrap() {
@@ -86,29 +79,28 @@ fn parse_one_set(s: &str) -> CubeSet {
     //eg: 3 red, 2 blue,  4 green
     //or: 2 red, 1 green
     //split on ',' and trim
-    let single_colors = s.split(",").collect::<Vec<&str>>();
-    let colour_tuples = single_colors
+
+    let single_colors = s.split(',').collect::<Vec<&str>>();
+    let folded_map = single_colors
         .iter()
         .map(|sc| parse_one_colour(sc))
-        .collect::<Vec<(Colour, usize)>>();
-    let mut color_map = HashMap::new();
-    color_map.insert(Colour::Red, 0);
-    color_map.insert(Colour::Green, 0);
-    color_map.insert(Colour::Blue, 0);
+        .collect::<Vec<(Colour, usize)>>()
+        .iter()
+        .fold(HashMap::new(), |mut acc, (c, size)| {
+            acc.insert(*c, *size);
+            acc
+        });
 
-    for (c, size) in colour_tuples {
-        color_map.insert(c, size);
-    }
     let cs = CubeSet {
-        red: *color_map.get(&Colour::Red).unwrap(),
-        green: *color_map.get(&Colour::Green).unwrap(),
-        blue: *color_map.get(&Colour::Blue).unwrap(),
+        red: *folded_map.get(&Colour::Red).unwrap_or(&0usize),
+        green: *folded_map.get(&Colour::Green).unwrap_or(&0usize),
+        blue: *folded_map.get(&Colour::Blue).unwrap_or(&0usize),
     };
     cs
 }
 
 fn parse_one_game(line: &str) -> Game {
-    let g = line.split(":").collect::<Vec<&str>>();
+    let g = line.split(':').collect::<Vec<&str>>();
     let game_id = g
         .first()
         .unwrap()
@@ -117,15 +109,12 @@ fn parse_one_game(line: &str) -> Game {
         .unwrap();
     //
     let rest = g.last().unwrap();
-    let sets = rest.split(";").collect::<Vec<&str>>();
+    let sets = rest.split(';').collect::<Vec<&str>>();
     let sets = sets
         .iter()
         .map(|set| parse_one_set(set))
         .collect::<Vec<CubeSet>>();
-    Game {
-        id: game_id,
-        sets: sets,
-    }
+    Game { id: game_id, sets }
 }
 fn parse_games() -> Vec<Game> {
     let lines = load_input("../data/day2.txt");
@@ -135,7 +124,7 @@ fn parse_games() -> Vec<Game> {
         .collect::<Vec<Game>>()
 }
 pub fn part1() {
-    let gs = day2::parse_games();
+    let gs = parse_games();
     let game_set = GameSet { games: gs };
     let constraint = CubeSet {
         red: 12,
@@ -146,12 +135,12 @@ pub fn part1() {
     println!("Day 2 part 1: {}", sum);
 }
 pub fn part2() {
-    let gs = day2::parse_games();
+    let gs = parse_games();
     let game_set = GameSet { games: gs };
     let s = game_set
         .games
         .iter()
-        .map(|g| (g.min_cube().power()))
+        .map(|g| g.min_cube().power())
         .collect::<Vec<usize>>()
         .iter()
         .sum::<usize>();
@@ -167,7 +156,7 @@ pub fn part2() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use itertools::assert_equal;
+
     #[test]
     pub fn power_and_min() {
         let s = "Game 1: 3 blue, 4 red;  1 red, 2 green, 6 blue; 2 green";
