@@ -97,20 +97,20 @@ fn solve(v: Vec<&str>, f: CalibrationFunction) -> u32 {
 pub fn part1() {
     let v = load_input("../data/day1.txt");
     let r = solve(v, replace_chars_with_digits);
-    println!("Part 1: {r}");
+    println!("Day 1 Part 1: {r}");
 }
 pub fn part2() {
     let v = load_input("../data/day1.txt");
     let r = solve(v, replace_words_with_digit);
-    println!("Part 2: {r}");
+    println!("Day 1 Part 2: {r}");
 }
 pub fn part1_threaded() {
     let v = load_input("../data/day1.txt");
     let r = solve_threaded(v, replace_chars_with_digits);
-    println!("Part 1: {r}");
+    println!("Day 1 Part 1: {r}");
 }
 pub fn part2_threaded() {
     let v = load_input("../data/day1.txt");
     let r = solve_threaded(v, replace_words_with_digit);
-    println!("Part 2: {r}");
+    println!("Day 1  Part 2: {r}");
 }

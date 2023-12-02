@@ -105,8 +105,8 @@ fn parse_one_game(line: &str) -> Game {
         .parse::<usize>()
         .unwrap();
     //
-    let rest = g.last().unwrap();
-    let sets = rest.split(';').collect::<Vec<&str>>();
+
+    let sets = g.last().unwrap().split(';').collect::<Vec<&str>>();
     let sets = sets
         .iter()
         .map(|set| parse_one_set(set))

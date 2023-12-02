@@ -46,6 +46,7 @@ fn day1() {
     let end_time = Instant::now();
     let diff = end_time - start_time;
     println!("Elapsed time: {} ms", diff.as_millis());
+    println!();
 }
 
 fn day2() {
