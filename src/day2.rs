@@ -31,9 +31,7 @@ impl Game {
         self.sets.iter().all(|g| g.passes(constraint))
     }
     fn min_cube(&self) -> CubeSet {
-        let min_cube = CubeSet::default();
-
-        self.sets.iter().fold(min_cube, |mut acc, x| {
+        self.sets.iter().fold(CubeSet::default(), |mut acc, x| {
             if x.red > acc.red {
                 acc.red = x.red;
             }
