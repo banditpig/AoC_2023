@@ -1,17 +1,15 @@
 #![allow(non_snake_case)]
-
+#![allow(unused)]
+use crate::day2::{CubeSet, GameSet};
 use std::thread;
 use std::time::Instant;
-
 
 mod day1;
 mod day2;
 mod utils;
 
-
-
 fn day1() {
-//Sequential
+    //Sequential
     let start_time = Instant::now();
     day1::part1();
     day1::part2();
@@ -49,10 +47,18 @@ fn day1() {
     let diff = end_time - start_time;
     println!("Elapsed time: {} ms", diff.as_millis());
 }
-fn day2(){
-
-}
+fn day2() {}
 fn main() {
-    day1();
-    day2()
+    //day1();
+    //day2()
+    let gs = day2::parse_games();
+    //12 red cubes, 13 green cubes, and 14 blue cubes?
+    let game_set = GameSet { games: gs };
+    let constraint = CubeSet {
+        red: 12,
+        green: 13,
+        blue: 14,
+    };
+    let x = game_set.passing_games_sum(&constraint);
+    dbg!(x);
 }
