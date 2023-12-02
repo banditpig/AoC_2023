@@ -92,12 +92,11 @@ fn solve_threaded(v: Vec<&'static str>, f: CalibrationFunction) -> u32{
 }
 
 fn solve(v: Vec<&str>, f: CalibrationFunction) -> u32{
-    let mut sum :u32 = 0;
-    for s in v{
-        let data = apply_calibration(s, f);
-        sum += first_last(&data);
-    }
-    sum
+    v.iter()
+        .map(|s|
+            first_last( &apply_calibration(s, f) )
+        )
+        .sum()
 }
 
 pub fn part1(){
