@@ -91,12 +91,11 @@ fn parse_one_set(s: &str) -> CubeSet {
             acc
         });
 
-    let cs = CubeSet {
+    CubeSet {
         red: *folded_map.get(&Colour::Red).unwrap_or(&0usize),
         green: *folded_map.get(&Colour::Green).unwrap_or(&0usize),
         blue: *folded_map.get(&Colour::Blue).unwrap_or(&0usize),
-    };
-    cs
+    }
 }
 
 fn parse_one_game(line: &str) -> Game {
