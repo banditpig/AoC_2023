@@ -5,10 +5,13 @@ use std::time::Instant;
 
 
 mod day1;
+mod day2;
 mod utils;
 
-fn main() {
-    //Sequential
+
+
+fn day1() {
+//Sequential
     let start_time = Instant::now();
     day1::part1();
     day1::part2();
@@ -45,4 +48,11 @@ fn main() {
     let end_time = Instant::now();
     let diff = end_time - start_time;
     println!("Elapsed time: {} ms", diff.as_millis());
+}
+fn day2(){
+
+}
+fn main() {
+    day1();
+    day2()
 }
