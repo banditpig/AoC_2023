@@ -55,10 +55,11 @@ fn day2() {
     day2::part2();
 }
 fn day3() {
+    day3::part1();
     day3::part2();
 }
 fn main() {
-    // day1();
-    // day2();
+    day1();
+    day2();
     day3();
 }
