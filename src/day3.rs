@@ -3,10 +3,7 @@ use crate::utils::load_input;
 use std::collections::HashMap;
 
 pub fn part1() {
-    let lines = load_input("../data/day3.txt");
-    let mut eng = Engine::new();
-    eng.build_engine(lines);
-
+    let eng = build_engine();
     let mut res = vec![];
     for (pos, nmbr) in eng.numbers {
         let neighbours = nmbr.neighbours(&pos);
@@ -18,13 +15,16 @@ pub fn part1() {
     println!("Day 3 Part 1: {}", sum);
 }
 pub fn part2() {
-    let lines = load_input("../data/day3.txt");
-    let mut eng = Engine::new();
-    eng.build_engine(lines);
+    let eng = build_engine();
+    let nmbr_map = find_gears(&eng);
+    let ratios = gear_ratios(nmbr_map);
 
+    println!("Day 3 Part 2: {}", ratios); //79026871
+}
+
+fn find_gears(eng: &Engine) -> HashMap<Pos, Vec<&Number>> {
     let gears = eng.gear_symbol_positions();
-    //for each gear
-    //
+
     let mut nmbr_map: HashMap<Pos, Vec<&Number>> = HashMap::new();
     for g in gears {
         for (pos, nmbr) in &eng.numbers {
@@ -37,14 +37,26 @@ pub fn part2() {
             }
         }
     }
-    let mut sum = 0;
-    for (_, v) in nmbr_map {
-        if v.len() == 2 {
-            sum += v.first().unwrap().value * v.last().unwrap().value;
-        }
-    }
-    println!("Day 3 Part 2: {}", sum);
+    nmbr_map
 }
+fn gear_ratios(nmbr_map: HashMap<Pos, Vec<&Number>>) -> usize {
+    nmbr_map
+        .into_values()
+        .filter(|v| v.len() == 2)
+        .collect::<Vec<_>>()
+        .iter()
+        .fold(0, |acc, v| {
+            acc + v.first().unwrap().value * v.last().unwrap().value
+        })
+}
+
+fn build_engine() -> Engine {
+    let lines = load_input("../data/day3.txt");
+    let mut eng = Engine::new();
+    eng.build_engine(lines);
+    eng
+}
+
 #[derive(Hash, Eq, PartialEq, Default, Debug, Copy, Clone)]
 struct Pos {
     x: usize,
