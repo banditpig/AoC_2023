@@ -17,7 +17,35 @@ pub fn part1() {
     let sum = res.iter().fold(0, |acc, n| acc + n.value);
     println!("Day 3 Part 1: {}", sum);
 }
-#[derive(Hash, Eq, PartialEq, Default, Debug)]
+pub fn part2() {
+    let lines = load_input("../data/day3.txt");
+    let mut eng = Engine::new();
+    eng.build_engine(lines);
+
+    let gears = eng.gear_symbol_positions();
+    //for each gear
+    //
+    let mut nmbr_map: HashMap<Pos, Vec<&Number>> = HashMap::new();
+    for g in gears {
+        for (pos, nmbr) in &eng.numbers {
+            let neighs = nmbr.neighbours(&pos);
+            if neighs.contains(g) {
+                nmbr_map
+                    .entry(*g)
+                    .and_modify(|existing_value| existing_value.push(nmbr))
+                    .or_insert(vec![nmbr]);
+            }
+        }
+    }
+    let mut sum = 0;
+    for (_, v) in nmbr_map {
+        if v.len() == 2 {
+            sum += v.first().unwrap().value * v.last().unwrap().value;
+        }
+    }
+    println!("Day 3 Part 2: {}", sum);
+}
+#[derive(Hash, Eq, PartialEq, Default, Debug, Copy, Clone)]
 struct Pos {
     x: usize,
     y: usize,
@@ -27,7 +55,7 @@ impl Pos {
         Self { x, y }
     }
 }
-#[derive(Hash, Eq, PartialEq, Default, Debug)]
+#[derive(Hash, Eq, PartialEq, Default, Debug, Copy, Clone)]
 struct Number {
     length: usize,
     value: usize,
@@ -82,6 +110,15 @@ impl Engine {
         for (row, line) in lines.iter().enumerate() {
             self.parse_line(row, line);
         }
+    }
+    pub fn gear_symbol_positions(&self) -> Vec<&Pos> {
+        let mut syms = vec![];
+        for (p, c) in &self.symbols {
+            if *c == '*' {
+                syms.push(p);
+            }
+        }
+        syms
     }
     fn parse_line(&mut self, row: usize, line: &str) {
         let mut col = 0usize;
