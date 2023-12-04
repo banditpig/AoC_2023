@@ -7,6 +7,7 @@ use std::time::Instant;
 mod day1;
 mod day2;
 mod day3;
+mod day4;
 mod utils;
 
 fn day1() {
@@ -58,8 +59,12 @@ fn day3() {
     day3::part1();
     day3::part2();
 }
+fn day4() {
+    day4::part1();
+}
 fn main() {
-    day1();
-    day2();
-    day3();
+    // day1();
+    // day2();
+    // day3();
+    day4();
 }
