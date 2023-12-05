@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Seed(usize);
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
@@ -100,6 +101,17 @@ impl Almanac {
                 self.fertilizer_to_water(self.soil_to_fertilizer(self.seed_to_soil(s))),
             ),
         )))
+    }
+    pub fn lowest_location(&self) -> Location {
+        let binding = self
+            .seeds
+            .clone()
+            .into_iter()
+            .map(|s| self.route(s))
+            .collect::<Vec<_>>();
+
+        let m = binding.iter().min().unwrap();
+        *m
     }
 }
 
