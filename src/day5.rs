@@ -1,55 +1,109 @@
-use nom::bytes::complete::tag;
-use nom::multi::separated_list0;
-use nom::{
-    character::complete::{digit1, space1},
-    combinator::map_res,
-    sequence::tuple,
-    IResult,
-};
-
+use std::collections::HashMap;
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Seed(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Soil(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Fertilizer(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Water(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Light(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Temperature(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Humidity(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 struct Location(usize);
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+struct Range {
+    dest: usize,
+    src: usize,
+    length: usize,
+}
+#[derive(Debug)]
+struct Block {
+    name: String,
+    ranges: Vec<Range>,
+}
+#[derive(Debug)]
+struct Almanac {
+    seeds: Vec<Seed>,
+    location: HashMap<Humidity, Location>,
+    humidity: HashMap<Temperature, Humidity>,
+    temperature: HashMap<Light, Temperature>,
+    light: HashMap<Water, Light>,
+    water: HashMap<Fertilizer, Water>,
+    fertilizer: HashMap<Soil, Fertilizer>,
+    soil: HashMap<Seed, Soil>,
+}
+impl Almanac {
+    fn seed_to_soil(&self, s: Seed) -> Soil {
+        let v = self.soil.get(&s);
+        match v {
+            Some(v) => *v,
+            None => Soil(s.0),
+        }
+    }
 
-fn route(s: Seed) -> Location {
-    //maybe find/make compostion function! :) https://stackoverflow.com/questions/45786955/how-to-compose-functions-in-rust
-    humidity_to_location(temperature_to_humidity(light_to_temperature(
-        water_to_light(fertilizer_to_water(soil_to_fertilizer(seed_to_soil(s)))),
-    )))
-}
-fn seed_to_soil(s: Seed) -> Soil {
-    todo!();
+    fn soil_to_fertilizer(&self, s: Soil) -> Fertilizer {
+        let v = self.fertilizer.get(&s);
+        match v {
+            Some(v) => *v,
+            None => Fertilizer(s.0),
+        }
+    }
+
+    fn fertilizer_to_water(&self, f: Fertilizer) -> Water {
+        let v = self.water.get(&f);
+        match v {
+            Some(v) => *v,
+            None => Water(f.0),
+        }
+    }
+
+    fn water_to_light(&self, w: Water) -> Light {
+        let v = self.light.get(&w);
+        match v {
+            Some(v) => *v,
+            None => Light(w.0),
+        }
+    }
+
+    fn light_to_temperature(&self, l: Light) -> Temperature {
+        let v = self.temperature.get(&l);
+        match v {
+            Some(v) => *v,
+            None => Temperature(l.0),
+        }
+    }
+
+    fn temperature_to_humidity(&self, t: Temperature) -> Humidity {
+        let v = self.humidity.get(&t);
+        match v {
+            Some(v) => *v,
+            None => Humidity(t.0),
+        }
+    }
+
+    fn humidity_to_location(&self, h: Humidity) -> Location {
+        let v = self.location.get(&h);
+        match v {
+            Some(v) => *v,
+            None => Location(h.0),
+        }
+    }
+    fn route(&self, s: Seed) -> Location {
+        //maybe find/make compostion function! :) https://stackoverflow.com/questions/45786955/how-to-compose-functions-in-rust
+        self.humidity_to_location(self.temperature_to_humidity(self.light_to_temperature(
+            self.water_to_light(
+                self.fertilizer_to_water(self.soil_to_fertilizer(self.seed_to_soil(s))),
+            ),
+        )))
+    }
 }
 
-fn soil_to_fertilizer(s: Soil) -> Fertilizer {
-    todo!();
-}
-
-fn fertilizer_to_water(f: Fertilizer) -> Water {
-    todo!();
-}
-
-fn water_to_light(w: Water) -> Light {
-    todo!();
-}
-
-fn light_to_temperature(l: Light) -> Temperature {
-    todo!();
-}
-
-fn temperature_to_humidity(t: Temperature) -> Humidity {
-    todo!();
-}
-
-fn humidity_to_location(h: Humidity) -> Location {
-    todo!();
-}
-fn parse_range(r: &str) -> (usize, usize, usize) {
+fn parse_range(r: &str) -> Range {
     //eg 10 32 8
     let r = r
         .split(" ")
@@ -60,15 +114,19 @@ fn parse_range(r: &str) -> (usize, usize, usize) {
         .iter()
         .map(|s| s.parse::<usize>().unwrap())
         .collect::<Vec<_>>();
-    (
-        *r.first().unwrap(),
-        *r.iter().nth(1).unwrap(),
-        *r.iter().nth(2).unwrap(),
-    )
+    Range {
+        dest: *r.first().unwrap(),
+        src: *r.iter().nth(1).unwrap(),
+        length: *r.iter().nth(2).unwrap(),
+    }
 }
 
-fn parse_block(b: &Vec<&str>) -> Vec<(usize, usize, usize)> {
-    todo!();
+fn parse_block(b: &str) -> Block {
+    let mut b = b.split('\n').collect::<Vec<&str>>();
+    let head = b.remove(0).to_string();
+
+    let ranges = b.iter().map(|l| parse_range(l)).collect::<Vec<_>>();
+    Block { name: head, ranges }
 }
 mod tests {
     use super::*;
@@ -76,15 +134,24 @@ mod tests {
     #[test]
     fn range() {
         let s = "23 3 44";
-        let (a, b, c) = parse_range(s);
-        assert_eq!(23, a);
-        assert_eq!(3, b);
-        assert_eq!(44, c);
+        let r = parse_range(s);
+        assert_eq!(23, r.dest);
+        assert_eq!(3, r.src);
+        assert_eq!(44, r.length);
         //
         let s = "49 53 8";
-        let (a, b, c) = parse_range(s);
-        assert_eq!(49, a);
-        assert_eq!(53, b);
-        assert_eq!(8, c);
+        let r = parse_range(s);
+        assert_eq!(49, r.dest);
+        assert_eq!(53, r.src);
+        assert_eq!(8, r.length);
+    }
+    #[test]
+    fn block() {
+        let b = "soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15";
+        let block = parse_block(b);
+        dbg!(block);
     }
 }
