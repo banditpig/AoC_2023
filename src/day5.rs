@@ -2,54 +2,16 @@ use crate::utils;
 use itertools::Itertools;
 use load_file::load_str;
 use nom::error::dbg_dmp;
-use std::collections::HashMap;
+use rayon::prelude::*;
+use std::collections::BTreeMap;
+use std::ffi::c_ushort;
 use std::slice::from_ref;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::scope;
+use std::time::Instant;
 
-// Define a trait with an associated type representing the inner type
-trait AlmanacInt {
-    type Inner;
-
-    // Define a method that operates on the inner type
-    fn get_inner(&self) -> Self::Inner;
-}
-
-// Implement the trait for any newtype wrapping usize
-impl AlmanacInt for Seed {
-    type Inner = usize;
-
-    fn get_inner(&self) -> usize {
-        self.0
-    }
-}
-
-// fn main() {
-//     let my_newtype_instance = MyNewtype(42);
-//
-//     // Call the method defined in the Newtype trait
-//     let inner_value = my_newtype_instance.get_inner();
-//
-//     println!("Inner value: {}", inner_value);
-// }
-
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Seed(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Soil(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Fertilizer(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Water(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Light(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Temperature(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Humidity(usize);
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
-struct Location(usize);
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 struct Range {
     dest: usize, //values
@@ -59,9 +21,8 @@ struct Range {
 
 impl Range {
     pub fn src_to_dest(&self, s: usize) -> Option<usize> {
-        if (self.src..self.src + self.length).contains(&s) {
-            let ix = s - self.src;
-            Some(self.dest + ix)
+        if (s < self.src + self.length) && (s >= self.src) {
+            Some(self.dest + (s - self.src))
         } else {
             None
         }
@@ -69,14 +30,19 @@ impl Range {
 }
 
 #[derive(Debug)]
-struct Block {
+pub struct Block {
     name: String,
     ranges: Vec<Range>,
 }
 
 impl Block {
     pub fn src_to_dest(&self, src: usize) -> usize {
-        for r in &self.ranges {
+        let larger = self
+            .ranges
+            .iter()
+            .skip_while(|&item| item.src < src)
+            .collect::<Vec<_>>();
+        for r in larger {
             if let Some(dest) = r.src_to_dest(src) {
                 return dest;
             }
@@ -87,36 +53,33 @@ impl Block {
 
 #[derive(Debug, Default)]
 struct Almanac {
-    seeds: Vec<Seed>,
+    seeds: Vec<usize>,
 
-    blocks_map: HashMap<String, Block>,
+    blocks_map: BTreeMap<String, Block>,
 }
 //type CalibrationFunction = fn(&str) -> Vec<u32>;
-type SeedParser = fn(&str) -> Vec<Seed>;
-fn simple_seed_parser(s: &str) -> Vec<Seed> {
+type SeedParser = fn(&str) -> Vec<usize>;
+fn simple_seed_parser(s: &str) -> Vec<usize> {
     s.split(' ')
         .collect::<Vec<_>>()
         .iter()
         .filter(|s| !s.is_empty())
-        .map(|s| Seed(s.parse::<usize>().unwrap()))
-        .collect::<Vec<Seed>>()
+        .map(|s| (s.parse::<usize>().unwrap()))
+        .collect::<Vec<usize>>()
 }
-fn pair_seed_parser(s: &str) -> Vec<Seed> {
+fn pair_seed_parser(s: &str) -> Vec<usize> {
     let seeds = simple_seed_parser(s);
     let mut all = vec![];
     for pair in seeds.chunks(2) {
-        let s = pair[0].0;
-        let len = pair[1].0;
-        let v = (s..s + len)
-            .into_iter()
-            .map(|s| Seed(s))
-            .collect::<Vec<Seed>>();
+        let s = pair[0];
+        let len = pair[1];
+        let v = (s..s + len).into_iter().collect::<Vec<usize>>();
         all.extend(v);
     }
 
     all
 }
-pub fn build_almanac(seed_parser: SeedParser) -> (Vec<Seed>, HashMap<String, Block>) {
+pub fn build_almanac(seed_parser: SeedParser) -> (Vec<usize>, BTreeMap<String, Block>) {
     let blocks = load_str!("../data/day5.txt")
         .split("\n\n")
         .collect::<Vec<&str>>()
@@ -127,97 +90,72 @@ pub fn build_almanac(seed_parser: SeedParser) -> (Vec<Seed>, HashMap<String, Blo
     let first = blocks.first().unwrap();
     let seeds = seed_parser(&*first.name.replace("seeds: ", ""));
 
-    let mut blocks_map = HashMap::new();
+    let mut blocks_map = BTreeMap::new();
     for b in blocks.into_iter() {
         blocks_map.insert(b.name.to_string(), b);
     }
     (seeds, blocks_map)
 }
 
-// fn extract_seeds(&self) {
-//     let seed_block = self.blocks_map.get("seeds:").unwrap();
-// }
+fn routes(blocks_map: &BTreeMap<String, Block>, seeds: &[usize]) -> Vec<usize> {
+    //===
 
-fn seed_to_soil(blocks_map: &HashMap<String, Block>, s: &Seed) -> Soil {
-    let b = blocks_map.get("seed-to-soil map:").unwrap();
-    Soil(b.src_to_dest(s.0))
-}
+    let seed_to_soil_b = blocks_map.get("seed-to-soil map:").unwrap();
+    let soil_to_fertilizer_b = blocks_map.get("soil-to-fertilizer map:").unwrap();
+    let fertilizer_to_water_b = blocks_map.get("fertilizer-to-water map:").unwrap();
+    let water_to_light_b = blocks_map.get("water-to-light map:").unwrap();
+    let light_to_temperature_b = blocks_map.get("light-to-temperature map:").unwrap();
+    let temperature_to_humidity_b = blocks_map.get("temperature-to-humidity map:").unwrap();
+    let humidity_to_location_b = blocks_map.get("humidity-to-location map:").unwrap();
 
-fn soil_to_fertilizer(blocks_map: &HashMap<String, Block>, s: &Soil) -> Fertilizer {
-    let b = blocks_map.get("soil-to-fertilizer map:").unwrap();
-    Fertilizer(b.src_to_dest(s.0))
-}
+    let mut results = vec![];
+    for s in seeds {
+        let s = seed_to_soil_b.src_to_dest(*s);
 
-fn fertilizer_to_water(blocks_map: &HashMap<String, Block>, f: &Fertilizer) -> Water {
-    let b = blocks_map.get("fertilizer-to-water map:").unwrap();
-    Water(b.src_to_dest(f.0))
-}
+        let s = soil_to_fertilizer_b.src_to_dest(s);
 
-fn water_to_light(blocks_map: &HashMap<String, Block>, w: &Water) -> Light {
-    let b = blocks_map.get("water-to-light map:").unwrap();
-    Light(b.src_to_dest(w.0))
-}
+        let s = fertilizer_to_water_b.src_to_dest(s);
 
-fn light_to_temperature(blocks_map: &HashMap<String, Block>, l: &Light) -> Temperature {
-    let b = blocks_map.get("light-to-temperature map:").unwrap();
-    Temperature(b.src_to_dest(l.0))
-}
+        let s = water_to_light_b.src_to_dest(s);
 
-fn temperature_to_humidity(blocks_map: &HashMap<String, Block>, t: &Temperature) -> Humidity {
-    let b = blocks_map.get("temperature-to-humidity map:").unwrap();
-    Humidity(b.src_to_dest(t.0))
-}
+        let s = light_to_temperature_b.src_to_dest(s);
 
-fn humidity_to_location(blocks_map: &HashMap<String, Block>, h: &Humidity) -> Location {
-    let b = blocks_map.get("humidity-to-location map:").unwrap();
-    Location(b.src_to_dest(h.0))
-}
-fn route(blocks_map: &HashMap<String, Block>, s: &Seed) -> Location {
-    //maybe find/make compostion function! :) https://stackoverflow.com/questions/45786955/how-to-compose-functions-in-rust
-    // humidity_to_location(
-    //     temperature_to_humidity(
-    //         light_to_temperature(
-    //             water_to_light(
-    //                 fertilizer_to_water(
-    //                     soil_to_fertilizer(
-    //                         seed_to_soil(s, blocks_map),blocks_map ),blocks_map),blocks_map
-    //     ),blocks_map
-    // )));
+        let s = temperature_to_humidity_b.src_to_dest(s);
 
-    let ss = seed_to_soil(blocks_map, s);
-    let ss = soil_to_fertilizer(blocks_map, &ss);
-    let ss = fertilizer_to_water(blocks_map, &ss);
-    let ss = water_to_light(blocks_map, &ss);
-    let ss = light_to_temperature(blocks_map, &ss);
-    let ss = temperature_to_humidity(blocks_map, &ss);
-    humidity_to_location(blocks_map, &ss)
+        let s = humidity_to_location_b.src_to_dest(s);
+        results.push(s);
+    }
+    //====
+    results
+
+    //seeds.iter().map(|s| route(blocks_map, s)).collect()
 }
 //Vec<&'static str>
-pub fn lowest_location(blocks_map: HashMap<String, Block>, seeds: Vec<Seed>) -> Location {
-    let locs = Arc::new(Mutex::new(vec![]));
+pub fn lowest_location(blocks_map: BTreeMap<String, Block>, seeds: Vec<usize>) -> usize {
+    //let locs = Arc::new(Mutex::new(vec![]));
     let blocks_map = Arc::new(Mutex::new(blocks_map));
-    let mut handles = vec![];
+    println!("Total seeds: {:?}", seeds.len()); //2658467274
+                                                //100000000
+    let my_atomic_int = Arc::new(AtomicI32::new(0));
 
-    for s in &seeds {
-        let s = s.clone();
-        let locs = Arc::clone(&locs);
-        let blocks_map = Arc::clone(&blocks_map);
-        let handle = thread::spawn(move || {
-            let r = route(&blocks_map.lock().unwrap(), &s);
+    // Clone a reference to the atomic integer for each thread
+    let thread_atomic_int = Arc::clone(&my_atomic_int);
 
-            locs.lock().unwrap().push(r);
-        });
+    let ss = seeds
+        .par_chunks(100000000)
+        .flat_map(|chunk| {
+            let start_time = Instant::now();
+            thread_atomic_int.fetch_add(1, Ordering::SeqCst);
+            println!("Thread start: {:?}", thread_atomic_int);
 
-        handles.push(handle);
-    }
-
-    for handle in handles {
-        handle.join().expect("Thread panicked");
-    }
-    let binding = locs.lock().unwrap();
-    // Now locs is outside the threads, and you can access the collected results
-    let lowest = binding.iter().min().unwrap();
-    *lowest
+            let blocks_map = Arc::clone(&blocks_map);
+            let x = routes(&blocks_map.lock().unwrap(), chunk);
+            let elapsed_time = start_time.elapsed();
+            println!("Elapsed time: {:?}", elapsed_time);
+            x
+        })
+        .collect::<Vec<usize>>();
+    *ss.iter().min().unwrap()
 }
 
 fn parse_range(r: &str) -> Range {
@@ -242,7 +180,9 @@ fn parse_block(b: &str) -> Block {
     let mut b = b.split('\n').collect::<Vec<&str>>();
     let head = b.remove(0).to_string();
 
-    let ranges = b.iter().map(|l| parse_range(l)).collect::<Vec<_>>();
+    let mut ranges = b.iter().map(|l| parse_range(l)).collect::<Vec<_>>();
+
+    ranges.sort_by(|b1, b2| b2.src.cmp(&b1.src));
 
     Block { name: head, ranges }
 }
@@ -259,7 +199,7 @@ mod tests {
     fn range_maps() {
         // 50 98 2
         // 52 50 48
-        let mut r = Range {
+        let mut _r = Range {
             dest: 50,
             src: 98,
             length: 2,

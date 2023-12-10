@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-// #![allow(unused)]
+#![allow(unused)]
 
 use std::thread;
 use std::time::Instant;
@@ -9,6 +9,8 @@ mod day2;
 mod day3;
 mod day4;
 mod day5;
+mod day6;
+mod day7;
 mod utils;
 
 fn day1() {
@@ -69,5 +71,11 @@ fn main() {
     // day2();
     // day3();
     //day4();
-    day5::parse_almanac();
+    //day5::parse_almanac();
+    day6();
+}
+
+fn day6() {
+    day6::part1();
+    day6::part2();
 }
