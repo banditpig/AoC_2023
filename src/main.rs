@@ -72,7 +72,8 @@ fn main() {
     // day3();
     //day4();
     //day5::parse_almanac();
-    day6();
+    //day6();
+    day7::part1();
 }
 
 fn day6() {
