@@ -11,6 +11,8 @@ mod day4;
 mod day5;
 mod day6;
 mod day7;
+
+mod day8;
 mod utils;
 
 fn day1() {
@@ -67,13 +69,16 @@ fn day4() {
     day4::part2();
 }
 fn main() {
-    // day1();
-    // day2();
-    // day3();
-    //day4();
-    //day5::parse_almanac();
-    //day6();
-    day7::part1();
+    day1();
+    day2();
+    day3();
+    day4();
+    day5::parse_almanac();
+    day6();
+
+    //day7::part2();
+    day8::part1();
+    day8::part2();
 }
 
 fn day6() {

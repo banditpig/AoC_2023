@@ -1,113 +1,143 @@
-use crate::day7::Hand::{Fives, Fours, FullHouse, HighCard, OnePair, Threes, TwoPair};
-use std::cmp::Ordering;
-use std::collections::HashMap;
-
 use crate::utils;
+use crate::utils::group_chars;
 use itertools::Itertools;
-use std::fs::read_to_string;
+use nom::Or;
+use regex::CaptureNames;
+use std::cmp::Ordering;
 use std::mem;
-use std::mem::discriminant;
 use std::panic::panic_any;
 
-static LABEL: [char; 13] = [
-    '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A',
-];
-
-#[derive(Eq, Ord, Debug, PartialEq, PartialOrd)]
-struct Bid(usize);
-
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-enum Hand {
-    HighCard(HandStr, usize),
-    OnePair(HandStr, usize),
-    TwoPair(HandStr, usize),
-    Threes(HandStr, usize),
-    FullHouse(HandStr, usize),
-    Fours(HandStr, usize),
-    Fives(HandStr, usize),
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum HandType {
+    HighCard,
+    OnePair,
+    TwoPair,
+    Threes,
+    FullHouse,
+    Fours,
+    Fives,
 }
-#[derive(Debug, Eq, PartialEq)]
-struct HandStr(String);
-impl Ord for HandStr {
-    fn cmp(&self, other: &Self) -> Ordering {
-        compare_hands(&self.0, &other.0)
-    }
+#[derive(Debug, Eq)]
+struct Hand {
+    hand_type: HandType,
+    bid: usize,
+    //score: usize,
+    hand_chars: String,
 }
-impl PartialOrd for HandStr {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(self))
-    }
-}
-
-fn value(ch: char) -> usize {
-    let mut ix: usize = 0;
-    for c in LABEL.iter() {
-        if *c == ch {
-            return ix;
-        } else {
-            ix += 1;
-        }
-    }
-    panic!();
-}
-fn compare_hands(hand1: &str, hand2: &str) -> Ordering {
+fn compare_hand_strings(hand1: &str, hand2: &str) -> Ordering {
     let chars1 = hand1.chars().collect::<Vec<_>>();
     let chars2 = hand2.chars().collect::<Vec<_>>();
 
-    if value(*chars2.first().unwrap()) < value(*chars1.first().unwrap()) {
+    if ch_to_int(*chars1.first().unwrap()) < ch_to_int(*chars2.first().unwrap()) {
         return Ordering::Less;
     }
-    if value(*chars2.first().unwrap()) > value(*chars1.first().unwrap()) {
+    if ch_to_int(*chars1.first().unwrap()) > ch_to_int(*chars2.first().unwrap()) {
         return Ordering::Greater;
     }
-    compare_hands(&hand1[1..], &hand2[1..])
+    compare_hand_strings(&hand1[1..].to_string(), &hand2[1..].to_string())
 }
-fn determine_hand(s: &str, bid: usize, vals: &Vec<&usize>) -> Hand {
-    if vals.len() == 1usize {
-        return Fives(HandStr(s.to_string()), bid);
-    }
-    if vals.len() == 2usize {
-        if vals[0] == &4usize {
-            return Fours(HandStr(s.to_string()), bid);
-        } else {
-            // ==3
-            return FullHouse(HandStr(s.to_string()), bid);
+impl PartialEq for Hand {
+    fn eq(&self, other: &Self) -> bool {
+        if self.hand_type.cmp(&other.hand_type) == Ordering::Equal {
+            return true;
         }
+        false
     }
-    if vals.len() == 3usize {
-        if vals[0] == &3usize {
-            return Threes(HandStr(s.to_string()), bid);
-        } else {
-            return TwoPair(HandStr(s.to_string()), bid);
-        }
-    }
-    if vals.len() == 4usize {
-        return OnePair(HandStr(s.to_string()), bid);
-    }
-    HighCard(HandStr(s.to_string()), bid)
-}
-fn parse_raw_hand(s: &str, bid: usize) -> Hand {
-    //how many occurences of the cards are there.
-    let map = get_card_occurences(s);
-
-    //get them and work from least to most.
-    let mut vals = map.values().collect::<Vec<&usize>>();
-    vals.sort();
-    vals.reverse();
-    determine_hand(s, bid, &vals)
 }
 
-fn get_card_occurences(s: &str) -> HashMap<char, usize> {
-    let mut map: HashMap<char, usize> = HashMap::new();
-    for c in s.chars() {
-        if map.contains_key(&c) {
-            map.insert(c, map.get(&c).unwrap() + 1);
-        } else {
-            map.insert(c, 1);
-        }
+impl PartialOrd for Hand {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
-    map
+}
+
+impl Ord for Hand {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.hand_type == other.hand_type {
+            return compare_hand_strings(&self.hand_chars, &other.hand_chars);
+        }
+        self.hand_type.cmp(&other.hand_type)
+    }
+}
+fn joker_count(hand: &[char]) -> usize {
+    hand.iter().fold(0, |mut acc, nxt| {
+        if *nxt == 'J' {
+            acc += 1
+        }
+        acc
+    })
+}
+fn is_joker(ch: char) -> bool {
+    ch == 'J'
+}
+fn ch_to_int(c: char) -> usize {
+    match c {
+        '2' => 2,
+        '3' => 3,
+        '4' => 4,
+        '5' => 5,
+        '6' => 6,
+        '7' => 7,
+        '8' => 8,
+        '9' => 9,
+        'T' => 10,
+        'J' => 11,
+        'Q' => 12,
+        'K' => 13,
+        'A' => 14,
+        _ => panic!(),
+    }
+}
+fn determine_hand_type(chars: &[char]) -> HandType {
+    //0..4
+    use HandType::*;
+    if chars[0] == chars[4] {
+        return Fives;
+    }
+    if chars[0] == chars[3] {
+        return Fours;
+    }
+    if chars[0] == chars[2] && chars[3] == chars[4] {
+        return FullHouse;
+    }
+    if chars[0] == chars[2] {
+        return Threes;
+    }
+    if chars[0] == chars[1] && chars[2] == chars[3] {
+        return TwoPair;
+    }
+    if chars[0] == chars[1] {
+        return OnePair;
+    }
+    HighCard
+}
+fn determine_hand_type_jokers(chars: &[char]) -> HandType {
+    //0..4
+    use HandType::*;
+    let jc = joker_count(chars);
+    if jc == 0 {
+        return determine_hand_type(chars);
+    }
+
+    if chars[0] == chars[4] {
+        return Fives;
+    }
+    if chars[0] == chars[3] {
+        return Fours;
+    }
+    if chars[0] == chars[2] && chars[3] == chars[4] {
+        return FullHouse;
+    }
+    if chars[0] == chars[2] {
+        return Threes;
+    }
+    if chars[0] == chars[1] && chars[2] == chars[3] {
+        return TwoPair;
+    }
+    if chars[0] == chars[1] {
+        return OnePair;
+    }
+    HighCard
 }
 
 fn parse_input() -> Vec<(String, usize)> {
@@ -120,75 +150,41 @@ fn parse_input() -> Vec<(String, usize)> {
     res
 }
 
-fn hand_str(h: Hand) -> String {
-    match h {
-        HighCard(HandStr(s), _)
-        | OnePair(HandStr(s), _)
-        | TwoPair(HandStr(s), _)
-        | Threes(HandStr(s), _)
-        | FullHouse(HandStr(s), _)
-        | Fours(HandStr(s), _)
-        | Fives(HandStr(s), _) => s,
-    }
-}
+fn create_hands(input: Vec<(String, usize)>) -> Vec<Hand> {
+    let mut hands: Vec<Hand> = vec![];
+    for (cards, bid) in input.iter() {
+        let mut chars: Vec<char> = cards.chars().collect();
+        let grouped_cards: String = group_chars(cards);
+        let hand_type = determine_hand_type(grouped_cards.chars().collect::<Vec<_>>().as_slice());
 
-fn sum_bid_rank_products(flatnd: Vec<&Hand>) -> usize {
-    //calculate the sum of the rank * bid
-    let mut ix = 1;
-    let mut sum = 0;
-    for h in flatnd {
-        let bid = match h {
-            HighCard(HandStr(s), n)
-            | OnePair(HandStr(s), n)
-            | TwoPair(HandStr(s), n)
-            | Threes(HandStr(s), n)
-            | FullHouse(HandStr(s), n)
-            | Fours(HandStr(s), n)
-            | Fives(HandStr(s), n) => n,
+        let h = Hand {
+            hand_type,
+            bid: *bid,
+            hand_chars: cards.clone(),
         };
-        sum += ix * bid;
-        ix += 1;
+        hands.push(h);
     }
-    sum
+    hands
 }
 
-fn flatten_groups(groups: Vec<Vec<&Hand>>) -> Vec<&Hand> {
-    let mut flatnd = vec![];
-    for g in groups {
-        let mut x = g;
-        x.sort_by(|a, b| a.cmp(b));
-        flatnd.extend(x);
-    }
-    flatnd.reverse();
-    flatnd
-}
+mod tests {
+    use super::*;
+    use crate::utils::group_chars;
+    use itertools::Itertools;
 
-fn group_and_sort_hands(v: &Vec<Hand>) -> Vec<Vec<&Hand>> {
-    //now group any hands that occur more than once
-    //and then sort them on the strengths of the individual cards.
-    let mut groups = vec![];
-    for (_key, group) in &v.iter().group_by(|x1| mem::discriminant(*x1)) {
-        let group_vec: Vec<_> = group.collect();
-        groups.push(group_vec);
-    }
-    groups
-}
+    #[test]
+    fn ranks() {
+        let input = parse_input();
+        let mut hands = create_hands(input);
 
-fn get_hands() -> Vec<Hand> {
-    //get hands and sort them in enum Hand's ordering
-    let mut d = parse_input();
-    let mut v = d
-        .iter()
-        .map(|(h, bid)| parse_raw_hand(h, *bid))
-        .collect::<Vec<_>>();
-    v.sort_by(|a, b| b.cmp(a));
-    v
-}
-pub fn part1() {
-    let v = get_hands();
-    let groups = group_and_sort_hands(&v);
-    //flatten the ordered groups
-    let flatnd = flatten_groups(groups);
-    let sum = sum_bid_rank_products(flatnd);
-    println!("{:?}", sum);
+        hands.sort();
+
+        let mut sum = 0;
+        for (ix, h) in hands.iter().enumerate() {
+            sum += (ix + 1) * h.bid;
+        }
+        //250058342
+        //252298357
+        dbg!(sum);
+    }
 }

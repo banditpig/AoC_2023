@@ -3,7 +3,7 @@ use itertools::Itertools;
 use load_file::load_str;
 use nom::error::dbg_dmp;
 use rayon::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_ushort;
 use std::slice::from_ref;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -12,10 +12,10 @@ use std::thread;
 use std::thread::scope;
 use std::time::Instant;
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 struct Range {
-    dest: usize, //values
-    src: usize,  // keys
+    dest: usize,
+    src: usize,
     length: usize,
 }
 
@@ -142,7 +142,7 @@ pub fn lowest_location(blocks_map: BTreeMap<String, Block>, seeds: Vec<usize>) -
     let thread_atomic_int = Arc::clone(&my_atomic_int);
 
     let ss = seeds
-        .par_chunks(100000000)
+        .par_chunks(10)
         .flat_map(|chunk| {
             let start_time = Instant::now();
             thread_atomic_int.fetch_add(1, Ordering::SeqCst);
@@ -182,13 +182,13 @@ fn parse_block(b: &str) -> Block {
 
     let mut ranges = b.iter().map(|l| parse_range(l)).collect::<Vec<_>>();
 
-    ranges.sort_by(|b1, b2| b2.src.cmp(&b1.src));
+    // ranges.sort_by(|b1, b2| b1.src.cmp(&b2.src));
 
     Block { name: head, ranges }
 }
 
 pub fn parse_almanac() {
-    let (seeds, blocks) = build_almanac(pair_seed_parser);
+    let (seeds, blocks) = build_almanac(simple_seed_parser);
 
     let l = lowest_location(blocks, seeds);
     dbg!(l);
