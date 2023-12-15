@@ -14,6 +14,7 @@ mod day7;
 
 mod day8;
 mod utils;
+mod day9;
 
 fn day1() {
     //Sequential
