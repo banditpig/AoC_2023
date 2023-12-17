@@ -12,9 +12,10 @@ mod day5;
 mod day6;
 mod day7;
 
+mod day10;
 mod day8;
-mod utils;
 mod day9;
+mod utils;
 
 fn day1() {
     //Sequential
@@ -70,16 +71,17 @@ fn day4() {
     day4::part2();
 }
 fn main() {
-    day1();
-    day2();
-    day3();
-    day4();
-    day5::parse_almanac();
-    day6();
+    // day1();
+    // day2();
+    // day3();
+    // day4();
+    // day5::parse_almanac();
+    // day6();
 
     //day7::part2();
-    day8::part1();
-    day8::part2();
+    // day8::part1();
+    // day8::part2();
+    day10::part1();
 }
 
 fn day6() {

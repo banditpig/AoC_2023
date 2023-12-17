@@ -17,3 +17,5 @@ time = "0.3.30"
 nom = { version = "7.1.3", features = [] }
 rayon = { version = "1.8", features = [] }
 num = "0.4.1"
+strum = { version = "0.25", features = [] }
+strum_macros = "0.25"
