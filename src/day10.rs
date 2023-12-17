@@ -15,6 +15,7 @@
 
 use crate::day10::Direction::{E, N, S, W};
 use crate::day10::Pipe::{EW, GR, NE, NS, NW, SE, ST, SW};
+use std::arch::aarch64::veor_s8;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use strum::IntoEnumIterator;
@@ -71,7 +72,7 @@ fn char_to_pipe(c: char) -> Pipe {
         'F' => NE,
         '.' => GR,
         'S' => ST,
-        _ => panic!(),
+        _ => panic!("====>> {c}"),
     }
 }
 impl Grid {
@@ -209,10 +210,11 @@ impl Grid {
             E => (x + 1, y),
         }
     }
+
     pub fn follow_route(&self, mut dir: Direction) -> Vec<(usize, usize)> {
         let (mut x, mut y) = (self.sx, self.sy);
 
-        let mut steps = vec![];
+        let mut path = vec![];
         let mut step = 1;
         let mut done = false;
 
@@ -224,10 +226,10 @@ impl Grid {
                 None => done = true,
                 Some(d) => dir = d,
             }
-            steps.push((x, y));
+            path.push((x, y));
             step += 1;
         }
-        steps
+        path
     }
 }
 
@@ -270,6 +272,45 @@ pub fn part1() {
             break;
         }
     }
+}
+pub fn part2() {
+    let g = load_input();
+
+    let init = g.initial_directions();
+    let route = g.follow_route(*init.first().unwrap());
+
+    let mut count = 0;
+    let mut in_out = false;
+    for y in (0..g.maxy) {
+        let mut pipe = GR;
+        for x in (0..g.maxx) {
+            if route.contains(&(x, y)) {
+                let ch = g.pipes.get(&(x, y)).unwrap();
+                match ch {
+                    NS => in_out = !in_out,
+                    EW => {}
+                    NE => pipe = *ch,
+                    SE => pipe = *ch,
+                    SW => {
+                        if pipe == NE {
+                            in_out = !in_out;
+                        }
+                    }
+                    NW => {
+                        if pipe == SE {
+                            in_out = !in_out;
+                        }
+                    }
+                    GR => {}
+                    ST => {}
+                }
+            } else if in_out {
+                count += 1;
+            }
+        }
+    }
+
+    println!("Part 2: {}", count);
 }
 #[cfg(test)]
 mod tests {
